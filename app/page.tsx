@@ -1,219 +1,76 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-// Removed localStorage - using API calls instead
-import type { Class, Teacher, Subject, Room, Timetable } from '@/types';
 
-export default function Dashboard() {
-  const [stats, setStats] = useState({
-    classes: 0,
-    teachers: 0,
-    subjects: 0,
-    rooms: 0,
-    timetables: 0,
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  const loadStats = async () => {
-    try {
-      const [classesRes, teachersRes, subjectsRes, roomsRes, timetablesRes] = await Promise.all([
-        fetch('/api/classes'),
-        fetch('/api/teachers'),
-        fetch('/api/subjects'),
-        fetch('/api/rooms'),
-        fetch('/api/timetables'),
-      ]);
-
-      // Check if responses are OK and JSON
-      const checkResponse = (res: Response, name: string) => {
-        if (!res.ok) {
-          console.error(`${name} API error:`, res.status, res.statusText);
-          return null;
-        }
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error(`${name} API returned non-JSON:`, contentType);
-          return null;
-        }
-        return res;
-      };
-
-      const classes = classesRes.ok ? await classesRes.json() : { success: false, data: [] };
-      const teachers = teachersRes.ok ? await teachersRes.json() : { success: false, data: [] };
-      const subjects = subjectsRes.ok ? await subjectsRes.json() : { success: false, data: [] };
-      const rooms = roomsRes.ok ? await roomsRes.json() : { success: false, data: [] };
-      const timetables = timetablesRes.ok ? await timetablesRes.json() : { success: false, data: [] };
-
-      setStats({
-        classes: classes.success ? classes.data?.length || 0 : (classes.teachers?.length || 0),
-        teachers: teachers.success ? teachers.data?.length || 0 : (teachers.teachers?.length || 0),
-        subjects: subjects.success ? subjects.data?.length || 0 : 0,
-        rooms: rooms.success ? rooms.data?.length || 0 : 0,
-        timetables: timetables.success ? timetables.data?.length || 0 : 0,
-      });
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      const [classesRes, teachersRes, subjectsRes, roomsRes, timetablesRes] = await Promise.all([
-        fetch('/api/classes'),
-        fetch('/api/teachers'),
-        fetch('/api/subjects'),
-        fetch('/api/rooms'),
-        fetch('/api/timetables'),
-      ]);
-
-      // Handle responses with error checking
-      const getData = async (res: Response) => {
-        if (!res.ok) {
-          console.error('API error:', res.status, res.statusText);
-          return [];
-        }
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('Non-JSON response:', contentType);
-          return [];
-        }
-        const data = await res.json();
-        return data.success ? data.data : (data.teachers || []);
-      };
-
-      const [classes, teachers, subjects, rooms, timetables] = await Promise.all([
-        getData(classesRes),
-        getData(teachersRes),
-        getData(subjectsRes),
-        getData(roomsRes),
-        getData(timetablesRes),
-      ]);
-
-      const data = {
-        classes,
-        teachers,
-        subjects,
-        rooms,
-        timetables,
-      };
-
-      const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `timetable-export-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      alert('Failed to export data. Please check the console for details.');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-lg text-gray-600">Loading...</div>
-      </div>
-    );
-  }
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-900">Timetable Management System</h1>
-          <button
-            onClick={handleExport}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="max-w-4xl w-full px-4">
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">
+            Timetable Management System
+          </h1>
+          <p className="text-xl text-gray-600">
+            Manage your school timetable efficiently
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Admin Card */}
+          <Link
+            href="/login/admin"
+            className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-8 transform hover:scale-105"
           >
-            Export JSON
-          </button>
-        </div>
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-blue-700 transition-colors">
+                <svg
+                  className="w-10 h-10 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Admin</h2>
+              <p className="text-gray-600 text-center">
+                Manage classes, teachers, and timetables
+              </p>
+            </div>
+          </Link>
 
-        {/* Statistics Cards */}
-        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
-          <StatCard title="Classes" count={stats.classes} href="/classes" color="bg-blue-500" />
-          <StatCard title="Teachers" count={stats.teachers} href="/teachers" color="bg-green-500" />
-          <StatCard title="Subjects" count={stats.subjects} href="/subjects" color="bg-yellow-500" />
-          <StatCard title="Rooms" count={stats.rooms} href="/rooms" color="bg-purple-500" />
-          <StatCard title="Timetables" count={stats.timetables} href="/timetable" color="bg-red-500" />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="rounded-lg bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-xl font-semibold text-gray-900">Quick Actions</h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Link
-              href="/classes"
-              className="rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50"
-            >
-              <h3 className="font-semibold text-gray-900">Manage Classes</h3>
-              <p className="mt-1 text-sm text-gray-600">Add, edit, or delete classes</p>
-            </Link>
-            <Link
-              href="/teachers"
-              className="rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50"
-            >
-              <h3 className="font-semibold text-gray-900">Manage Teachers</h3>
-              <p className="mt-1 text-sm text-gray-600">Add, edit, or delete teachers</p>
-            </Link>
-            <Link
-              href="/subjects"
-              className="rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50"
-            >
-              <h3 className="font-semibold text-gray-900">Manage Subjects</h3>
-              <p className="mt-1 text-sm text-gray-600">Add, edit, or delete subjects</p>
-            </Link>
-            <Link
-              href="/rooms"
-              className="rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50"
-            >
-              <h3 className="font-semibold text-gray-900">Manage Rooms</h3>
-              <p className="mt-1 text-sm text-gray-600">Add, edit, or delete rooms</p>
-            </Link>
-          </div>
+          {/* Teacher Card */}
+          <Link
+            href="/login/teacher"
+            className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-8 transform hover:scale-105"
+          >
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mb-6 group-hover:bg-green-700 transition-colors">
+                <svg
+                  className="w-10 h-10 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Teacher</h2>
+              <p className="text-gray-600 text-center">
+                View your personal timetable
+              </p>
+            </div>
+          </Link>
         </div>
       </div>
     </div>
-  );
-}
-
-function StatCard({
-  title,
-  count,
-  href,
-  color,
-}: {
-  title: string;
-  count: number;
-  href: string;
-  color: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-lg bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{count}</p>
-        </div>
-        <div className={`${color} rounded-full p-3`}>
-          <div className="h-6 w-6 rounded-full bg-white opacity-20"></div>
-        </div>
-      </div>
-    </Link>
   );
 }

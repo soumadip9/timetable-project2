@@ -6,16 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "seed": "tsx scripts/seed.ts",
+    "verify:admin": "tsx scripts/verify-admin.ts",
+    "reset:admin": "tsx scripts/reset-admin-password.ts",
+    "reset:teacher": "tsx scripts/reset-teacher-password.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "googleapis": "^166.0.0",
     "mongodb": "^7.0.0",
     "mongoose": "^9.0.0",
     "next": "16.0.3",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "recharts": "^3.5.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -23,9 +30,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

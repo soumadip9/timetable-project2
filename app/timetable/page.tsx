@@ -45,11 +45,22 @@ export default function TimetablePage() {
         fetch('/api/rooms'),
       ]);
 
-      const timetablesData = await timetablesRes.json();
-      const classesData = await classesRes.json();
-      const teachersData = await teachersRes.json();
-      const subjectsData = await subjectsRes.json();
-      const roomsData = await roomsRes.json();
+      // Check if responses are OK before parsing JSON
+      if (!timetablesRes.ok || !classesRes.ok || !teachersRes.ok || !subjectsRes.ok || !roomsRes.ok) {
+        console.error('API error:', {
+          timetables: timetablesRes.status,
+          classes: classesRes.status,
+          teachers: teachersRes.status,
+          subjects: subjectsRes.status,
+          rooms: roomsRes.status,
+        });
+      }
+
+      const timetablesData = timetablesRes.ok ? await timetablesRes.json() : { success: false, data: [] };
+      const classesData = classesRes.ok ? await classesRes.json() : { success: false, data: [] };
+      const teachersData = teachersRes.ok ? await teachersRes.json() : { success: false, teachers: [], data: [] };
+      const subjectsData = subjectsRes.ok ? await subjectsRes.json() : { success: false, data: [] };
+      const roomsData = roomsRes.ok ? await roomsRes.json() : { success: false, data: [] };
 
       // Handle different API response formats and transform _id to id
       const transformId = (item: any) => {
@@ -329,7 +340,7 @@ export default function TimetablePage() {
                             </div>
                           ) : (
                             <div
-                              className="cursor-pointer rounded border-2 border-dashed border-gray-300 p-2 text-center text-xs text-gray-400 hover:border-blue-400 hover:text-blue-400"
+                              className="cursor-pointer rounded border-2 border-dashed border-gray-300 p-2 text-center text-xs text-gray-600 hover:border-blue-400 hover:text-blue-600"
                               onClick={() => handleSlotClick(day, timeSlot)}
                             >
                               Click to add
@@ -378,7 +389,7 @@ export default function TimetablePage() {
                             </button>
                           </div>
                         ) : (
-                          <div className="mt-2 text-sm text-gray-400">Click to add</div>
+                          <div className="mt-2 text-sm text-gray-600">Click to add</div>
                         )}
                       </div>
                     );

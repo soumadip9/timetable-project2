@@ -229,12 +229,12 @@ export default function TimetableGrid() {
                           {entry.startTime} - {entry.endTime}
                         </div>
                         {typeof entry.teacherId === 'object' && entry.teacherId.name && (
-                          <div className="mt-1 text-sm text-gray-500">
+                          <div className="mt-1 text-sm text-gray-700">
                             Teacher: {entry.teacherId.name}
                           </div>
                         )}
                         {typeof entry.roomId === 'object' && (entry.roomId.name || entry.roomId.number) && (
-                          <div className="mt-1 text-sm text-gray-500">
+                          <div className="mt-1 text-sm text-gray-700">
                             Room: {entry.roomId.name || entry.roomId.number}
                           </div>
                         )}

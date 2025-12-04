@@ -6,7 +6,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   password?: string;
-  role: 'admin' | 'user' | 'teacher';
+  role: 'ADMIN' | 'TEACHER';
   image?: string;
   emailVerified?: Date;
   createdAt: Date;
@@ -30,12 +30,14 @@ const UserSchema: Schema = new Schema(
     },
     password: {
       type: String,
+      required: true,
       select: false, // Don't include password in queries by default
     },
     role: {
       type: String,
-      enum: ['admin', 'user', 'teacher'],
-      default: 'user',
+      enum: ['ADMIN', 'TEACHER'],
+      default: 'TEACHER',
+      required: true,
     },
     image: {
       type: String,
@@ -50,17 +52,16 @@ const UserSchema: Schema = new Schema(
 );
 
 // Hash password before saving
-UserSchema.pre('save', async function (next) {
+UserSchema.pre('save', async function () {
+  // Only hash password if it's been modified (or is new)
   if (!this.isModified('password')) {
-    return next();
+    return;
   }
 
   if (this.password) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
   }
-
-  next();
 });
 
 // Method to compare password

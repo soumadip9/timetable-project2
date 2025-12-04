@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId');
     const day = searchParams.get('day');
 
@@ -21,12 +21,19 @@ export async function GET(request: NextRequest) {
       query.day = day;
     }
 
-    const timetables = await TimetableNew.find(query)
+    // Build query with sorting if classId is present
+    let timetablesQuery = TimetableNew.find(query)
       .populate('classId', 'name section grade')
       .populate('subjectId', 'name code')
       .populate('teacherId', 'name email specialization')
-      .populate('roomId', 'name capacity building')
-      .lean();
+      .populate('roomId', 'name capacity building');
+
+    // If classId is present, sort by day and timeSlot
+    if (classId) {
+      timetablesQuery = timetablesQuery.sort({ day: 1, timeSlot: 1 });
+    }
+
+    const timetables = await timetablesQuery.lean();
 
     // Transform timetables: convert _id to id and extract IDs from populated fields
     const transformed = timetables.map((t: any) => {
@@ -60,7 +67,7 @@ export async function GET(request: NextRequest) {
       return result;
     });
 
-    return NextResponse.json({ success: true, data: transformed }, { status: 200 });
+    return NextResponse.json({ timetables: transformed }, { status: 200 });
   } catch (error) {
     console.error('Error fetching timetables:', error);
     return NextResponse.json(

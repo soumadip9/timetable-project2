@@ -1,27 +1,25 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface ITeacher extends Document {
-  name: string;
-  email: string;
-  specialization: string;
+  userId: mongoose.Types.ObjectId;
+  subject: string;
+  phone?: string;
 }
 
 const TeacherSchema: Schema = new Schema(
   {
-    name: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
       unique: true,
-      lowercase: true,
-      trim: true,
     },
-    specialization: {
+    subject: {
       type: String,
       required: true,
+    },
+    phone: {
+      type: String,
     },
   },
   {

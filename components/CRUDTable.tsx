@@ -61,7 +61,7 @@ export default function CRUDTable<T extends EntityType>({
       </div>
 
       {data.length === 0 ? (
-        <div className="py-12 text-center text-gray-500">
+        <div className="py-12 text-center text-gray-600">
           No {title.toLowerCase()} found. Click "Add New" to create one.
         </div>
       ) : (

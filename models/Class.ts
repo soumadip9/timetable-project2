@@ -2,8 +2,9 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IClass extends Document {
   name: string;
-  section: string;
-  grade: number;
+  subjects?: string[];
+  classRoom?: string; // Room assigned for normal subjects
+  labSubjectRoomMap?: Record<string, string>; // Map of lab subject -> lab room
 }
 
 const ClassSchema: Schema = new Schema(
@@ -11,14 +12,19 @@ const ClassSchema: Schema = new Schema(
     name: {
       type: String,
       required: true,
+      unique: true,
     },
-    section: {
+    subjects: {
+      type: [String],
+      default: [],
+    },
+    classRoom: {
       type: String,
-      required: true,
+      default: '',
     },
-    grade: {
-      type: Number,
-      required: true,
+    labSubjectRoomMap: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
   },
   {

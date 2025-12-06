@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Timetable from '@/models/Timetable';
 import mongoose from 'mongoose';
-import { requireAdmin } from '@/lib/get-session';
+import { requireAdmin } from '@/lib/auth-helpers';
 
 // GET - Fetch all timetable entries
 export async function GET(request: NextRequest) {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   try {
     // Require admin role
     try {
-      await requireAdmin();
+      await requireAdmin(request);
     } catch (authError) {
       if (authError instanceof Error) {
         if (authError.message === 'Unauthorized') {

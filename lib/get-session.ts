@@ -1,27 +1,30 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+// This file is deprecated. Use @/lib/auth-helpers instead.
+// Re-exporting from auth-helpers for backwards compatibility
 
-export async function getSession() {
-  return await getServerSession(authOptions);
+export { getAuthToken, requireAdmin, requireTeacher } from '@/lib/auth-helpers';
+
+// Legacy exports for backwards compatibility
+import { getAuthToken } from '@/lib/auth-helpers';
+
+export async function getSession(request?: any) {
+  return await getAuthToken(request);
 }
 
-export async function requireAuth() {
-  const session = await getSession();
-
-  if (!session || !session.user) {
+export async function requireAuth(request?: any) {
+  const token = await getAuthToken(request);
+  
+  if (!token) {
     throw new Error('Unauthorized');
   }
 
-  return session;
-}
-
-export async function requireAdmin() {
-  const session = await requireAuth();
-
-  if (session.user.role !== 'admin') {
-    throw new Error('Forbidden: Admin access required');
-  }
-
-  return session;
+  // Convert token to session-like format for backwards compatibility
+  return {
+    user: {
+      id: token.sub || '',
+      email: token.email || '',
+      name: token.name || '',
+      role: token.role || '',
+    },
+  };
 }
 

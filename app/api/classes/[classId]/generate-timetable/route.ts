@@ -108,44 +108,21 @@ export async function POST(
     console.log(`[Generator] ========== ROOM ASSIGNMENT FOR CLASS: ${klass.name} ==========`);
     console.log(`[Generator] Assigned class room: "${classRoom}"`);
     console.log(`[Generator] Lab subject room assignments:`, JSON.stringify(labSubjectRoomMap, null, 2));
-    console.log(`[Generator] Raw labSubjectRoomMap type:`, typeof klass.labSubjectRoomMap);
-    console.log(`[Generator] Raw labSubjectRoomMap:`, klass.labSubjectRoomMap);
     console.log(`[Generator] ============================================================`);
     
-    // Fallback: If no room assigned, fetch available rooms
-    let fallbackRoom = '';
-    if (!classRoom || Object.keys(labSubjectRoomMap).length === 0) {
-      let allRooms: any[] = [];
-      try {
-        const roomsResult = await Room.find({}).lean();
-        allRooms = Array.isArray(roomsResult) ? roomsResult : [];
-      } catch (error) {
-        console.warn('[Generator] Error fetching rooms for fallback:', error);
-        allRooms = [];
-      }
-      
-      const validRooms = (allRooms || []).filter((room: any) => {
-        return room && typeof room === 'object' && room.name && typeof room.name === 'string';
-      });
-      
-      if (!classRoom && validRooms.length > 0) {
-        const normalRooms = validRooms.filter((room: any) => {
-          try {
-            const roomName = String(room.name || '').toLowerCase();
-            return roomName && roomName.length > 0 && !roomName.includes('lab');
-          } catch (error) {
-            return false;
-          }
-        });
-        if (normalRooms.length > 0 && normalRooms[0].name) {
-          fallbackRoom = String(normalRooms[0].name);
-          console.warn(`[Generator] No class room assigned, using fallback: ${fallbackRoom}`);
-        }
-      }
+    // Validate that class room is assigned - REQUIRED for timetable generation
+    if (!classRoom || classRoom.trim() === '') {
+      return NextResponse.json(
+        { 
+          error: "Class room not assigned", 
+          message: `Please assign a class room for "${klass.name}" before generating the timetable. Go to Room Assignment page to assign rooms.`
+        },
+        { status: 400 }
+      );
     }
     
-    // Use classRoom if assigned, otherwise use fallback
-    const assignedClassRoom = classRoom || fallbackRoom;
+    // Use the assigned class room - NO FALLBACK to random rooms
+    const assignedClassRoom = classRoom.trim();
 
     // Build a map subject -> assigned teacher object (or null)
     const subjectAssignedTeacher: Record<string, any | null> = {};
@@ -527,6 +504,7 @@ export async function POST(
             }
             
             const currentCount = subjectCountsPerWeek[normalizedSubject] || 0;
+            // Use < instead of <= to allow scheduling when at limit-1, then it becomes limit
             const canUse = currentCount < limit;
             
             if (!canUse) {
@@ -537,6 +515,40 @@ export async function POST(
             
             return canUse;
           });
+          
+          // Sort by remaining capacity (prefer subjects with more remaining slots)
+          if (withinLimit.length > 1) {
+            withinLimit.sort((a, b) => {
+              const normalizedA = a.trim();
+              const normalizedB = b.trim();
+              const limitA = subjectFrequencyMap[normalizedA];
+              const limitB = subjectFrequencyMap[normalizedB];
+              
+              // If both have limits, prefer the one with more remaining capacity
+              if (limitA !== undefined && limitB !== undefined) {
+                const countA = subjectCountsPerWeek[normalizedA] || 0;
+                const countB = subjectCountsPerWeek[normalizedB] || 0;
+                const remainingA = limitA - countA;
+                const remainingB = limitB - countB;
+                return remainingB - remainingA; // Sort descending (more remaining first)
+              }
+              
+              // If only one has a limit, prefer the one without limit or with more remaining
+              if (limitA !== undefined && limitB === undefined) {
+                const countA = subjectCountsPerWeek[normalizedA] || 0;
+                const remainingA = limitA - countA;
+                return remainingA > 0 ? -1 : 1; // Prefer A if it has remaining, else prefer B
+              }
+              
+              if (limitA === undefined && limitB !== undefined) {
+                const countB = subjectCountsPerWeek[normalizedB] || 0;
+                const remainingB = limitB - countB;
+                return remainingB > 0 ? 1 : -1; // Prefer B if it has remaining, else prefer A
+              }
+              
+              return 0; // Both have no limits or same remaining
+            });
+          }
           
           return withinLimit;
         };
@@ -571,16 +583,19 @@ export async function POST(
             `[Generator] No candidates after filtering, trying fallback for day ${day}, period ${period}`
           );
           
-          // Fallback: use all subjects, but still respect frequency limits
+          // Fallback: use all subjects, but still respect frequency limits strictly
           candidateSubjects = applyFrequencyFilter(subjects);
           
           if (candidateSubjects.length === 0) {
             console.error(
               `[Generator] ERROR: No subjects available after applying frequency limits! All subjects have reached their limits.`
             );
-            // Even if all subjects are at limit, we need to proceed - but log warning
-            // This shouldn't happen if limits are set correctly
-            candidateSubjects = subjects; // Last resort fallback
+            console.error(
+              `[Generator] Skipping this slot - cannot schedule any subject without exceeding frequency limits.`
+            );
+            // Skip this slot entirely rather than bypassing limits
+            skippedDueToUnavailability++;
+            continue;
           }
         }
         
@@ -656,9 +671,27 @@ export async function POST(
             scheduledLabs.add(period);
             scheduledLabs.add(nextPeriod);
             
+            // FINAL CHECK: Verify frequency limit BEFORE incrementing for lab subjects
+            const currentCountBeforeIncrement = subjectCountsPerWeek[normalizedSubject] || 0;
+            
+            // Check if this lab subject has a frequency limit
+            if (subjectFrequencyMap[normalizedSubject]) {
+              const limit = subjectFrequencyMap[normalizedSubject];
+              if (currentCountBeforeIncrement >= limit) {
+                console.error(
+                  `[Generator] ✗✗ FREQUENCY LIMIT EXCEEDED: Lab "${normalizedSubject}" already at ${currentCountBeforeIncrement}/${limit}, skipping slot`
+                );
+                skippedDueToUnavailability++;
+                // Remove from scheduled labs since we're not scheduling it
+                scheduledLabs.delete(period);
+                scheduledLabs.delete(nextPeriod);
+                continue;
+              }
+            }
+            
             // Increment counts (only once for the lab, as it's one class session spanning 2 periods)
             subjectCountsToday[subjectForSlot]++;
-            subjectCountsPerWeek[normalizedSubject] = (subjectCountsPerWeek[normalizedSubject] || 0) + 1;
+            subjectCountsPerWeek[normalizedSubject] = currentCountBeforeIncrement + 1;
             
             // Log frequency tracking
             if (subjectFrequencyMap[normalizedSubject]) {
@@ -692,15 +725,15 @@ export async function POST(
 
             // For lab subjects, use assigned lab room from labSubjectRoomMap
             let assignedRoom = assignedClassRoom;
-            if (isLabSubject(subjectForSlot)) {
-              // Check if there's an assigned lab room for this subject
-              const assignedLabRoom = labSubjectRoomMap[subjectForSlot];
-              if (assignedLabRoom) {
-                assignedRoom = assignedLabRoom;
-              } else {
-                // Fallback: try to find a lab room
-                console.warn(`[Generator] No lab room assigned for "${subjectForSlot}", using class room: ${assignedClassRoom}`);
-              }
+            // Check if there's an assigned lab room for this lab subject
+            const assignedLabRoom = labSubjectRoomMap[subjectForSlot];
+            if (assignedLabRoom && assignedLabRoom.trim() !== '') {
+              assignedRoom = assignedLabRoom.trim();
+              console.log(`[Generator] Using assigned lab room "${assignedRoom}" for lab subject "${subjectForSlot}"`);
+            } else {
+              // Use class room if lab room not assigned (but log warning)
+              console.warn(`[Generator] ⚠ No lab room assigned for "${subjectForSlot}", using class room: ${assignedClassRoom}`);
+              console.warn(`[Generator] ⚠ Please assign a specific lab room for "${subjectForSlot}" in Room Assignment page`);
             }
             
             // Create entries for both consecutive periods
@@ -743,12 +776,27 @@ export async function POST(
           continue;
         }
         
-        // Only increment counts and track subjects AFTER we successfully find a teacher
-        // Increment count for this subject (both daily and weekly)
+        // FINAL CHECK: Verify frequency limit BEFORE incrementing
         // Use normalized subject name for weekly count
         const normalizedSubject = subjectForSlot.trim();
+        const currentCountBeforeIncrement = subjectCountsPerWeek[normalizedSubject] || 0;
+        
+        // Check if this subject has a frequency limit
+        if (subjectFrequencyMap[normalizedSubject]) {
+          const limit = subjectFrequencyMap[normalizedSubject];
+          if (currentCountBeforeIncrement >= limit) {
+            console.error(
+              `[Generator] ✗✗ FREQUENCY LIMIT EXCEEDED: "${normalizedSubject}" already at ${currentCountBeforeIncrement}/${limit}, skipping slot`
+            );
+            skippedDueToUnavailability++;
+            continue;
+          }
+        }
+        
+        // Only increment counts and track subjects AFTER we successfully find a teacher and verify limits
+        // Increment count for this subject (both daily and weekly)
         subjectCountsToday[subjectForSlot]++;
-        subjectCountsPerWeek[normalizedSubject] = (subjectCountsPerWeek[normalizedSubject] || 0) + 1;
+        subjectCountsPerWeek[normalizedSubject] = currentCountBeforeIncrement + 1;
         
         // Log frequency tracking
         if (subjectFrequencyMap[normalizedSubject]) {
@@ -781,7 +829,9 @@ export async function POST(
         teacherScheduleCache[teacherIdStr][day].add(period);
 
         // For normal subjects, use the assigned class room
-        // (Lab subjects are handled separately above)
+        // (Lab subjects are handled separately above and use their assigned lab rooms)
+        console.log(`[Generator] Room assignment: "${subjectForSlot}" → "${assignedClassRoom}" (assigned class room)`);
+        
         entriesToInsert.push({
           classId: klass._id,
           teacherId: teacherObj._id,

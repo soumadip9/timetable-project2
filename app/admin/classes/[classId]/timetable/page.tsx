@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getAuthToken } from '@/lib/auth-helpers';
 import { connectDB } from '@/lib/mongodb';
 import Class from '@/models/Class';
 import TimetableNew from '@/models/TimetableNew';
@@ -128,16 +127,14 @@ export default async function ClassTimetablePage({
 }) {
   const { classId } = await params;
 
-  // Check authentication
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    redirect('/auth/signin');
-  }
-
-  // Check role
-  const role = (session.user as any)?.role;
-  if (role !== 'admin') {
-    redirect('/');
+  // Check authentication using auth helpers
+  try {
+    const token = await getAuthToken();
+    if (!token || token.role !== 'ADMIN') {
+      redirect('/login/admin');
+    }
+  } catch (error) {
+    redirect('/login/admin');
   }
 
   // Fetch all data in parallel

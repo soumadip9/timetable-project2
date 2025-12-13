@@ -1,24 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import type { Class, Teacher, Subject, Room } from '@/types';
 
-type EntityType = Class | Teacher | Subject | Room;
-type EntityKeys<T> = T extends Class
-  ? keyof Class
-  : T extends Teacher
-  ? keyof Teacher
-  : T extends Subject
-  ? keyof Subject
-  : keyof Room;
-
-interface Column<T extends EntityType> {
-  key: EntityKeys<T>;
+interface Column<T extends Record<string, any>> {
+  key: keyof T;
   label: string;
-  render?: (value: any, item: T) => React.ReactNode;
+  render?: (value: T[keyof T], item: T) => React.ReactNode;
 }
 
-interface CRUDTableProps<T extends EntityType> {
+interface CRUDTableProps<T extends Record<string, any> & { id: string }> {
   title: string;
   columns: Column<T>[];
   data: T[];
@@ -28,7 +18,7 @@ interface CRUDTableProps<T extends EntityType> {
   getDisplayName: (item: T) => string;
 }
 
-export default function CRUDTable<T extends EntityType>({
+export default function CRUDTable<T extends Record<string, any> & { id: string }>({
   title,
   columns,
   data,
@@ -88,7 +78,7 @@ export default function CRUDTable<T extends EntityType>({
                   {columns.map((column) => (
                     <td key={String(column.key)} className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                       {column.render
-                        ? column.render(item[column.key], item)
+                        ? column.render(item[column.key] as T[keyof T], item)
                         : String(item[column.key] ?? '')}
                     </td>
                   ))}

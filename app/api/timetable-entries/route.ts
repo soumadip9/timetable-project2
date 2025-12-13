@@ -95,12 +95,11 @@ export async function GET(request: NextRequest) {
 
     console.log('[API] GET /api/timetable-entries - Final query:', JSON.stringify(query, null, 2));
     
+    // Populate with error handling
+    // Use simple populate - don't populate userId nested field as it's not needed in response
     const entries = await TimetableEntry.find(query)
       .populate('classId', 'name')
-      .populate({
-        path: 'teacherId',
-        populate: { path: 'userId', select: 'name email' }
-      })
+      .populate('teacherId', 'name subject')
       .lean()
       .sort({ dayOfWeek: 1, periodNumber: 1 });
 
@@ -117,16 +116,34 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const transformed = entries.map((e: any) => ({
-      id: e._id.toString(),
-      classId: e.classId._id.toString(),
-      className: e.classId.name,
-      teacherId: e.teacherId._id.toString(),
-      dayOfWeek: e.dayOfWeek,
-      periodNumber: e.periodNumber,
-      subject: e.subject,
-      room: e.room || '',
-    }));
+    // Transform entries with null checks for populated fields
+    const transformed = entries.map((e: any) => {
+      // Handle case where classId might not be populated (deleted class)
+      const classId = e.classId?._id 
+        ? e.classId._id.toString() 
+        : (e.classId?.toString() || 'unknown');
+      const className = e.classId?.name || 'Unknown Class';
+      
+      // Handle case where teacherId might not be populated (deleted teacher)
+      const teacherId = e.teacherId?._id 
+        ? e.teacherId._id.toString() 
+        : (e.teacherId?.toString() || 'unknown');
+      
+      return {
+        id: e._id.toString(),
+        classId,
+        className,
+        teacherId,
+        dayOfWeek: e.dayOfWeek,
+        periodNumber: e.periodNumber,
+        subject: e.subject || '',
+        room: e.room || '',
+      };
+    }).filter((e: any) => {
+      // Filter out entries with invalid classId or teacherId (optional - you might want to keep them)
+      // For now, we'll keep them but with 'unknown' values
+      return true;
+    });
 
     return NextResponse.json({ success: true, data: transformed }, { status: 200 });
   } catch (error) {

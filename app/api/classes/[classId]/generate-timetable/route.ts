@@ -124,19 +124,22 @@ export async function POST(
     // Use the assigned class room - NO FALLBACK to random rooms
     const assignedClassRoom = classRoom.trim();
 
+    // Fetch all teachers for availability checking (use lean for consistency)
+    const allTeachers = await Teacher.find({}).lean();
+    
     // Build a map subject -> assigned teacher object (or null)
+    // Use lean objects for consistency
     const subjectAssignedTeacher: Record<string, any | null> = {};
     for (const subj of subjects) {
       const tid = subjectTeacherMap[subj];
       if (tid && mongoose.Types.ObjectId.isValid(tid)) {
-        subjectAssignedTeacher[subj] = await Teacher.findById(tid);
+        // Find teacher in lean array for consistency
+        const teacher = allTeachers.find((t) => t._id.toString() === tid.toString());
+        subjectAssignedTeacher[subj] = teacher || null;
       } else {
         subjectAssignedTeacher[subj] = null;
       }
     }
-
-    // Fetch all teachers for availability checking
-    const allTeachers = await Teacher.find({}).lean();
     
     // Helper function to extract base subject from lab subjects
     // e.g., "Physics Lab" -> "Physics", "Chemistry Lab" -> "Chemistry"
@@ -359,13 +362,27 @@ export async function POST(
     const subjectFrequencyMap: Record<string, number> = {};
     if (Array.isArray(subjectFrequency) && subjectFrequency.length > 0) {
       for (const item of subjectFrequency) {
-        if (item.subject && typeof item.maxPerWeek === 'number' && item.maxPerWeek > 0) {
+        // Handle both string and number types for maxPerWeek (frontend sends as number, but be safe)
+        const maxPerWeekValue = typeof item.maxPerWeek === 'string' 
+          ? parseInt(item.maxPerWeek, 10) 
+          : (typeof item.maxPerWeek === 'number' ? item.maxPerWeek : 0);
+        
+        if (item.subject && maxPerWeekValue > 0) {
           const normalizedSubject = item.subject.trim();
-          subjectFrequencyMap[normalizedSubject] = item.maxPerWeek;
+          subjectFrequencyMap[normalizedSubject] = maxPerWeekValue;
+          console.log(`[Generator] Frequency limit set: "${normalizedSubject}" = ${maxPerWeekValue} per week`);
         }
       }
-      console.log(`[Generator] Subject frequency limits configured:`, subjectFrequencyMap);
-      console.log(`[Generator] Available subjects for this class:`, subjects.map(s => `"${s}"`).join(", "));
+      console.log(`[Generator] Subject frequency limits configured:`, JSON.stringify(subjectFrequencyMap, null, 2));
+      console.log(`[Generator] Available subjects for this class:`, subjects.map(s => `"${s.trim()}"`).join(", "));
+      
+      // Validate: Check if all subjects with limits exist in the subjects array
+      for (const [subjectName, limit] of Object.entries(subjectFrequencyMap)) {
+        const exists = subjects.some(s => s.trim() === subjectName);
+        if (!exists) {
+          console.warn(`[Generator] ⚠ WARNING: Frequency limit set for "${subjectName}" but subject not in subjects list!`);
+        }
+      }
     }
     
     // Track subjects used per period across all days to prevent same-period repetition
@@ -442,25 +459,49 @@ export async function POST(
         }
         
         // FILTER 1.5: For lab subjects, check if next consecutive period is available
+        // AND check frequency limits BEFORE considering them
         // Separate lab subjects from regular subjects
-        const labCandidates = candidateSubjects.filter((s) => isLabSubject(s));
+        let labCandidates = candidateSubjects.filter((s) => isLabSubject(s));
         const regularCandidates = candidateSubjects.filter((s) => !isLabSubject(s));
         
+        // CRITICAL: Filter lab subjects by frequency limit BEFORE checking period availability
+        if (labCandidates.length > 0 && Object.keys(subjectFrequencyMap).length > 0) {
+          labCandidates = labCandidates.filter((s) => {
+            const normalizedSubject = s.trim();
+            const limit = subjectFrequencyMap[normalizedSubject];
+            if (limit !== undefined) {
+              const currentCount = subjectCountsPerWeek[normalizedSubject] || 0;
+              const canUse = currentCount < limit;
+              if (!canUse) {
+                console.log(
+                  `[Generator] Lab subject "${normalizedSubject}" filtered out due to frequency limit: ${currentCount}/${limit}`
+                );
+              }
+              return canUse;
+            }
+            return true; // No limit set, allow it
+          });
+        }
+        
         // If we have lab candidates, check if next period is available
+        // Don't prefer labs - just ensure they can be scheduled if selected
         if (labCandidates.length > 0 && period < maxPeriodsForDay) {
           // Next period must not be already part of a lab
           const nextPeriodAvailable = !scheduledLabs.has(period + 1);
           if (!nextPeriodAvailable) {
-            // Next period is occupied, filter out lab subjects
+            // Next period is occupied, filter out lab subjects (can't schedule them)
             candidateSubjects = regularCandidates;
             console.log(
               `[Generator] Filtered out lab subjects - next period ${period + 1} is not available`
             );
           } else {
-            // Prefer lab subjects if next period is available
+            // Next period is available - labs CAN be scheduled, but don't prefer them
+            // Mix lab and regular candidates equally for better distribution
             console.log(
-              `[Generator] Next period ${period + 1} is available - lab subjects can be scheduled`
+              `[Generator] Next period ${period + 1} is available - ${labCandidates.length} lab subject(s) can be scheduled (will be selected randomly with regular subjects)`
             );
+            // Keep both lab and regular candidates - selection will be random/balanced
+            candidateSubjects = [...regularCandidates, ...labCandidates];
           }
         } else if (labCandidates.length > 0 && period >= maxPeriodsForDay) {
           // Can't schedule lab if it's the last period (no next period available)
@@ -468,6 +509,9 @@ export async function POST(
           console.log(
             `[Generator] Filtered out lab subjects - period ${period} is the last period, no space for 2-period lab`
           );
+        } else {
+          // No lab candidates or they're filtered out - use regular candidates
+          candidateSubjects = regularCandidates.length > 0 ? regularCandidates : candidateSubjects;
         }
         
         // FILTER 2: Avoid repeating the same subject in the same period across different days
@@ -504,13 +548,22 @@ export async function POST(
             }
             
             const currentCount = subjectCountsPerWeek[normalizedSubject] || 0;
-            // Use < instead of <= to allow scheduling when at limit-1, then it becomes limit
+            // Strict check: if count >= limit, cannot use (prevents scheduling when at or above limit)
             const canUse = currentCount < limit;
             
             if (!canUse) {
+              const isLab = isLabSubject(s);
               console.log(
-                `[Generator] Subject "${normalizedSubject}" reached limit: ${currentCount}/${limit}`
+                `[Generator] Subject "${normalizedSubject}" ${isLab ? '(LAB)' : ''} reached limit: ${currentCount}/${limit} - FILTERED OUT`
               );
+            } else {
+              // Log when subject passes frequency check (for debugging)
+              const isLab = isLabSubject(s);
+              if (isLab && currentCount > 0) {
+                console.log(
+                  `[Generator] Lab subject "${normalizedSubject}" frequency check: ${currentCount}/${limit} - ALLOWED`
+                );
+              }
             }
             
             return canUse;
@@ -600,29 +653,55 @@ export async function POST(
         }
         
         // Separate lab and regular candidates for selection
+        // Don't prefer lab subjects - treat them equally with regular subjects for better distribution
         const labCandidatesForSelection = candidateSubjects.filter((s) => isLabSubject(s));
         const regularCandidatesForSelection = candidateSubjects.filter((s) => !isLabSubject(s));
         
+        // Strategy: Randomly decide whether to consider lab or regular subjects first
+        // This prevents all labs from being scheduled on the first day
+        const considerLabsFirst = assignmentStrategy === "random" 
+          ? Math.random() < 0.5  // 50% chance to consider labs first
+          : (rrIndex % 2 === 0); // Alternate for round-robin
+        
+        // Check if lab can be scheduled (needs next period available)
+        const canScheduleLab = labCandidatesForSelection.length > 0 
+          && period < maxPeriodsForDay 
+          && !scheduledLabs.has(period + 1);
+        
         if (assignmentStrategy === "random") {
-          // Prefer lab subjects if available and next period is free
-          if (labCandidatesForSelection.length > 0 && period < maxPeriodsForDay && !scheduledLabs.has(period + 1)) {
+          // Random selection: choose between lab and regular candidates randomly
+          if (canScheduleLab && considerLabsFirst) {
+            // Try lab first (50% chance)
             subjectForSlot = labCandidatesForSelection[Math.floor(Math.random() * labCandidatesForSelection.length)];
           } else if (regularCandidatesForSelection.length > 0) {
+            // Use regular subject
             subjectForSlot = regularCandidatesForSelection[Math.floor(Math.random() * regularCandidatesForSelection.length)];
+          } else if (canScheduleLab) {
+            // Fallback to lab if no regular candidates
+            subjectForSlot = labCandidatesForSelection[Math.floor(Math.random() * labCandidatesForSelection.length)];
           } else {
+            // Last resort: any candidate
             subjectForSlot = candidateSubjects[Math.floor(Math.random() * candidateSubjects.length)];
           }
         } else {
-          // Round-robin: prefer lab subjects if available
-          if (labCandidatesForSelection.length > 0 && period < maxPeriodsForDay && !scheduledLabs.has(period + 1)) {
+          // Round-robin: alternate between lab and regular candidates
+          if (canScheduleLab && considerLabsFirst) {
+            // Use lab candidate
             const index = rrIndex % labCandidatesForSelection.length;
             subjectForSlot = labCandidatesForSelection[index];
             rrIndex++;
           } else if (regularCandidatesForSelection.length > 0) {
+            // Use regular candidate
             const index = rrIndex % regularCandidatesForSelection.length;
             subjectForSlot = regularCandidatesForSelection[index];
             rrIndex++;
+          } else if (canScheduleLab) {
+            // Fallback to lab if no regular candidates
+            const index = rrIndex % labCandidatesForSelection.length;
+            subjectForSlot = labCandidatesForSelection[index];
+            rrIndex++;
           } else {
+            // Last resort: any candidate
             const index = rrIndex % candidateSubjects.length;
             subjectForSlot = candidateSubjects[index];
             rrIndex++;
@@ -672,11 +751,13 @@ export async function POST(
             scheduledLabs.add(nextPeriod);
             
             // FINAL CHECK: Verify frequency limit BEFORE incrementing for lab subjects
+            // This is a critical check to prevent exceeding limits
             const currentCountBeforeIncrement = subjectCountsPerWeek[normalizedSubject] || 0;
             
             // Check if this lab subject has a frequency limit
-            if (subjectFrequencyMap[normalizedSubject]) {
-              const limit = subjectFrequencyMap[normalizedSubject];
+            const limit = subjectFrequencyMap[normalizedSubject];
+            if (limit !== undefined) {
+              // Use strict check: if count >= limit, cannot schedule
               if (currentCountBeforeIncrement >= limit) {
                 console.error(
                   `[Generator] ✗✗ FREQUENCY LIMIT EXCEEDED: Lab "${normalizedSubject}" already at ${currentCountBeforeIncrement}/${limit}, skipping slot`
@@ -687,6 +768,10 @@ export async function POST(
                 scheduledLabs.delete(nextPeriod);
                 continue;
               }
+              // Log when lab passes the final frequency check
+              console.log(
+                `[Generator] ✓ Lab "${normalizedSubject}" frequency check PASSED: ${currentCountBeforeIncrement}/${limit} (will become ${currentCountBeforeIncrement + 1}/${limit})`
+              );
             }
             
             // Increment counts (only once for the lab, as it's one class session spanning 2 periods)
@@ -737,9 +822,17 @@ export async function POST(
             }
             
             // Create entries for both consecutive periods
+            // Ensure ObjectIds are properly handled
+            const classIdObj = klass._id instanceof mongoose.Types.ObjectId 
+              ? klass._id 
+              : new mongoose.Types.ObjectId(klass._id);
+            const teacherIdObj = teacherObj._id instanceof mongoose.Types.ObjectId 
+              ? teacherObj._id 
+              : new mongoose.Types.ObjectId(teacherObj._id);
+            
             entriesToInsert.push({
-              classId: klass._id,
-              teacherId: teacherObj._id,
+              classId: classIdObj,
+              teacherId: teacherIdObj,
               dayOfWeek: day,
               periodNumber: period,
               subject: subjectForSlot,
@@ -747,8 +840,8 @@ export async function POST(
             });
             
             entriesToInsert.push({
-              classId: klass._id,
-              teacherId: teacherObj._id,
+              classId: classIdObj,
+              teacherId: teacherIdObj,
               dayOfWeek: day,
               periodNumber: nextPeriod,
               subject: subjectForSlot,
@@ -832,9 +925,17 @@ export async function POST(
         // (Lab subjects are handled separately above and use their assigned lab rooms)
         console.log(`[Generator] Room assignment: "${subjectForSlot}" → "${assignedClassRoom}" (assigned class room)`);
         
+        // Ensure ObjectIds are properly handled
+        const classIdObj = klass._id instanceof mongoose.Types.ObjectId 
+          ? klass._id 
+          : new mongoose.Types.ObjectId(klass._id);
+        const teacherIdObj = teacherObj._id instanceof mongoose.Types.ObjectId 
+          ? teacherObj._id 
+          : new mongoose.Types.ObjectId(teacherObj._id);
+        
         entriesToInsert.push({
-          classId: klass._id,
-          teacherId: teacherObj._id,
+          classId: classIdObj,
+          teacherId: teacherIdObj,
           dayOfWeek: day,
           periodNumber: period,
           subject: subjectForSlot,
@@ -845,7 +946,59 @@ export async function POST(
       }
     }
 
-    if (entriesToInsert.length > 0) await TimetableEntry.insertMany(entriesToInsert);
+    if (entriesToInsert.length > 0) {
+      try {
+        // Ensure all ObjectIds are properly converted
+        const entriesToSave = entriesToInsert.map((entry) => {
+          // Validate required fields
+          if (!entry.classId || !entry.teacherId || !entry.subject) {
+            throw new Error(`Invalid entry data: missing required fields - classId: ${!!entry.classId}, teacherId: ${!!entry.teacherId}, subject: ${!!entry.subject}`);
+          }
+          
+          return {
+            classId: entry.classId instanceof mongoose.Types.ObjectId 
+              ? entry.classId 
+              : new mongoose.Types.ObjectId(entry.classId),
+            teacherId: entry.teacherId instanceof mongoose.Types.ObjectId 
+              ? entry.teacherId 
+              : new mongoose.Types.ObjectId(entry.teacherId),
+            dayOfWeek: entry.dayOfWeek,
+            periodNumber: entry.periodNumber,
+            subject: entry.subject,
+            room: entry.room || undefined,
+          };
+        });
+        
+        console.log(`[Generator] Attempting to insert ${entriesToSave.length} timetable entries...`);
+        const result = await TimetableEntry.insertMany(entriesToSave, { ordered: false });
+        console.log(`[Generator] ✓ Successfully inserted ${result.length} timetable entries`);
+      } catch (insertError: any) {
+        console.error('[Generator] ✗ Error inserting timetable entries:', insertError);
+        // If it's a duplicate key error, log but continue
+        if (insertError.code === 11000) {
+          console.warn('[Generator] Some entries already exist (duplicate key error), continuing...');
+          // Try to insert remaining entries individually
+          const insertedCount = insertError.writeErrors?.length || 0;
+          console.log(`[Generator] ${insertedCount} entries were inserted before duplicate error`);
+        } else {
+          throw new Error(`Failed to insert timetable entries: ${insertError.message || insertError}`);
+        }
+      }
+    } else {
+      const errorMsg = skippedDueToUnavailability > 0
+        ? `No entries created. All ${assignedSlots + skippedDueToUnavailability} slots were skipped due to teacher unavailability or other constraints.`
+        : 'No entries created. Generation produced no timetable entries.';
+      console.warn(`[Generator] ⚠ ${errorMsg}`);
+      
+      // Don't throw error, but return informative message
+      return NextResponse.json({
+        success: false,
+        assignedSlots: 0,
+        skippedDueToUnavailability,
+        totalAttempted: assignedSlots + skippedDueToUnavailability,
+        error: errorMsg,
+      }, { status: 400 });
+    }
 
     // Save subjects list to Class document
     klass.subjects = subjects;

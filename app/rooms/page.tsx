@@ -39,18 +39,23 @@ export default function RoomsPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (data: Omit<Room, 'id'>) => {
+  const handleSave = async (data: Record<string, any>) => {
     try {
+      const roomData = {
+        name: data.name as string,
+        capacity: typeof data.capacity === 'number' ? data.capacity : Number(data.capacity),
+        building: data.building as string,
+      };
       const res = editingRoom
         ? await fetch('/api/rooms', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: editingRoom.id, ...data }),
+            body: JSON.stringify({ id: editingRoom.id, ...roomData }),
           })
         : await fetch('/api/rooms', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify(roomData),
           });
 
       if (res.ok) {

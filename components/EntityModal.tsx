@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 interface EntityModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Record<string, any>) => void;
+  onSave: (data: Record<string, any>) => void | Promise<void>;
   title: string;
   fields: {
     key: string;
@@ -35,9 +35,9 @@ export default function EntityModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    await onSave(formData);
     onClose();
   };
 

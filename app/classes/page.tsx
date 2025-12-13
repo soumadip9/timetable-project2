@@ -39,18 +39,23 @@ export default function ClassesPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (data: Omit<Class, 'id'>) => {
+  const handleSave = async (data: Record<string, any>) => {
     try {
+      const classData = {
+        name: data.name as string,
+        section: data.section as string,
+        grade: typeof data.grade === 'number' ? data.grade : Number(data.grade),
+      };
       const res = editingClass
         ? await fetch('/api/classes', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: editingClass.id, ...data }),
+            body: JSON.stringify({ id: editingClass.id, ...classData }),
           })
         : await fetch('/api/classes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify(classData),
           });
 
       if (res.ok) {

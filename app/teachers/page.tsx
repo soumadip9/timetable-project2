@@ -46,18 +46,23 @@ export default function TeachersPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (data: Omit<Teacher, 'id'>) => {
+  const handleSave = async (data: Record<string, any>) => {
     try {
+      const teacherData = {
+        name: data.name as string,
+        email: data.email as string,
+        specialization: data.specialization as string,
+      };
       const res = editingTeacher
         ? await fetch('/api/teachers', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: editingTeacher.id, ...data }),
+            body: JSON.stringify({ id: editingTeacher.id, ...teacherData }),
           })
         : await fetch('/api/teachers', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify(teacherData),
           });
 
       if (res.ok) {

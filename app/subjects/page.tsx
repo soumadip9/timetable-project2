@@ -39,18 +39,22 @@ export default function SubjectsPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (data: Omit<Subject, 'id'>) => {
+  const handleSave = async (data: Record<string, any>) => {
     try {
+      const subjectData = {
+        name: data.name as string,
+        code: data.code as string,
+      };
       const res = editingSubject
         ? await fetch('/api/subjects', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: editingSubject.id, ...data }),
+            body: JSON.stringify({ id: editingSubject.id, ...subjectData }),
           })
         : await fetch('/api/subjects', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify(subjectData),
           });
 
       if (res.ok) {

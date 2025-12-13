@@ -169,7 +169,7 @@ export default function TimetablePage() {
     }
   };
 
-  const handleSave = async (data: { subjectId: string; teacherId: string; roomId: string; classId?: string; day?: string }) => {
+  const handleSave = async (data: Record<string, any>) => {
     if (!activeTimeSlot) {
       alert('Please select a time slot.');
       return;

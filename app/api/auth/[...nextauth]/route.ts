@@ -27,7 +27,7 @@ export const authOptions = {
         await connectDB();
 
         // Normalize email
-        const email = credentials.email.trim().toLowerCase();
+        const email = (credentials.email as string).trim().toLowerCase();
 
         // Find user with password field
         const user = await User.findOne({ email }).select("+password");

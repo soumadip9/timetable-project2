@@ -9,5 +9,5 @@ export type {
   TimeSlot,
   TimetableDoc,
   Collections,
-} from '../src/types/models';
+} from '@/src/types/models';
 

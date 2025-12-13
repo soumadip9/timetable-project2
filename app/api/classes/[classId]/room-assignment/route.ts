@@ -39,8 +39,8 @@ export async function GET(
           labSubjectRoomMap = mapValue.toObject();
         } else if (mapValue && typeof mapValue.get === 'function') {
           // If it's still a Map (shouldn't happen with Mixed, but handle it)
-          const keys = Array.from(mapValue.keys() || []);
-          keys.forEach((key: string) => {
+          const keys = Array.from(mapValue.keys() || []) as string[];
+          keys.forEach((key) => {
             labSubjectRoomMap[key] = mapValue.get(key);
           });
         } else {
@@ -129,8 +129,8 @@ export async function PUT(
       const mapValue = klass.labSubjectRoomMap as any;
       if (mapValue && typeof mapValue.get === 'function') {
         // Mongoose Map instance
-        const keys = Array.from(mapValue.keys() || []);
-        keys.forEach((key: string) => {
+        const keys = Array.from(mapValue.keys() || []) as string[];
+        keys.forEach((key) => {
           responseLabMap[key] = mapValue.get(key);
         });
       } else if (mapValue && typeof mapValue === 'object') {

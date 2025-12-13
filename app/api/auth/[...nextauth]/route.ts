@@ -65,7 +65,7 @@ export const authOptions = {
         const userData = {
           id: user._id.toString(),
           email: user.email,
-          role: user.role || "TEACHER", // Ensure uppercase role
+          role: (user.role || "TEACHER").toLowerCase() as "admin" | "teacher", // Convert to lowercase for NextAuth User type
           name: user.name || "",
         };
         

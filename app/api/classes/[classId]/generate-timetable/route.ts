@@ -218,7 +218,7 @@ export async function POST(
       // Log detailed cache information
       console.log(`[Generator] Built availability cache for ${Object.keys(teacherScheduleCache).length} teachers`);
       for (const [teacherId, schedule] of Object.entries(teacherScheduleCache)) {
-        const teacher = allTeachers.find((t) => t._id.toString() === teacherId);
+        const teacher = allTeachers.find((t: any) => t._id.toString() === teacherId);
         const teacherName = teacher?.name || teacherId;
         const totalConflicts = Object.values(schedule).reduce((sum, periods) => sum + periods.size, 0);
         if (totalConflicts > 0) {

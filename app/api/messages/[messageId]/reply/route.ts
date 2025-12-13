@@ -31,7 +31,7 @@ export async function POST(
       );
     }
 
-    console.log('[Reply API] Teacher authenticated:', { email: user.email, role: userRole });
+    console.log('[Reply API] Teacher authenticated:', { email: user.email, role: token.role });
 
     const { messageId } = await params;
     console.log('[Reply API] Replying to message:', messageId);

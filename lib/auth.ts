@@ -90,21 +90,20 @@ export const authOptions = {
 
         if (!existingUser) {
           // Create new user from Google account
-          await User.create({
+          const newUser = await User.create({
             name: user.name,
             email: user.email,
             image: user.image,
             emailVerified: new Date(),
-            role: 'teacher', // Default role for new Google users
+            role: 'TEACHER', // Default role for new Google users (uppercase for User model)
           });
           
           // Try to find or create corresponding Teacher document
-          let teacher = await Teacher.findOne({ email: user.email });
+          let teacher = await Teacher.findOne({ userId: newUser._id });
           if (!teacher) {
             teacher = await Teacher.create({
-              name: user.name,
-              email: user.email,
-              specialization: 'General', // Default specialization
+              userId: newUser._id,
+              subject: 'General', // Default subject
             });
           }
           // Set teacherId for new users
@@ -121,7 +120,7 @@ export const authOptions = {
           // Fetch teacherId if user is a teacher
           // User model stores roles as uppercase: 'TEACHER' or 'ADMIN'
           if (existingUser.role && existingUser.role.toUpperCase() === 'TEACHER') {
-            const teacher = await Teacher.findOne({ email: existingUser.email });
+            const teacher = await Teacher.findOne({ userId: existingUser._id });
             if (teacher) {
               (user as any).teacherId = teacher._id.toString();
             }
@@ -157,7 +156,7 @@ export const authOptions = {
           
           // If teacher, fetch teacherId (check both uppercase and lowercase)
           if (dbUser.role && dbUser.role.toUpperCase() === 'TEACHER') {
-            const teacher = await Teacher.findOne({ email: dbUser.email });
+            const teacher = await Teacher.findOne({ userId: dbUser._id });
             if (teacher) {
               token.teacherId = teacher._id.toString();
             } else {

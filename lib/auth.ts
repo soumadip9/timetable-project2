@@ -1,4 +1,3 @@
-import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { connectDB } from '@/lib/mongodb';
@@ -72,7 +71,7 @@ if (!process.env.NEXTAUTH_SECRET) {
   console.warn('⚠️  NEXTAUTH_SECRET is not set. Please add it to .env.local');
 }
 
-export const authOptions: NextAuthOptions = {
+export const authOptions = {
   providers,
   callbacks: {
     async signIn({ user, account, profile }) {

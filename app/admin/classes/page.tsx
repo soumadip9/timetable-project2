@@ -40,7 +40,7 @@ export default function AdminClassesPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (data: Omit<Class, 'id'>) => {
+  const handleSave = async (data: Record<string, any>) => {
     try {
       const res = editingClass
         ? await fetch('/api/classes', {
@@ -65,6 +65,12 @@ export default function AdminClassesPage() {
       console.error('Error saving class:', error);
       alert('Failed to save class');
     }
+  };
+
+  const handleSaveWrapper = (data: Record<string, any>) => {
+    handleSave(data).catch((error) => {
+      console.error('Error in handleSave:', error);
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -135,7 +141,7 @@ export default function AdminClassesPage() {
         <EntityModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onSave={handleSave}
+          onSave={handleSaveWrapper}
           title={editingClass ? 'Edit Class' : 'Add New Class'}
           fields={[
             { key: 'name', label: 'Name', required: true },

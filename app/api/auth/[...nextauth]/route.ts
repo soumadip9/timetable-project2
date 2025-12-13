@@ -147,7 +147,7 @@ export const authOptions = {
         };
       }
     },
-    async redirect({ url, baseUrl }) {
+    async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
       // Allow relative URLs
       if (url.startsWith('/')) return `${baseUrl}${url}`;
       // Allow same origin

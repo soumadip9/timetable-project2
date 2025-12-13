@@ -74,7 +74,7 @@ if (!process.env.NEXTAUTH_SECRET) {
 export const authOptions = {
   providers,
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile }: { user: any; account: any; profile: any }) {
       if (account?.provider === 'google') {
         await connectDB();
 
@@ -123,7 +123,7 @@ export const authOptions = {
       
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account }: { token: any; user: any; account: any }) {
       // Initial sign in
       if (user) {
         token.id = user.id;
@@ -165,7 +165,7 @@ export const authOptions = {
 
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: any; token: any }) {
       try {
         if (session.user && token) {
           session.user.id = (token.id as string) || '';
@@ -177,7 +177,7 @@ export const authOptions = {
       }
       return session;
     },
-    async redirect({ url, baseUrl }) {
+    async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
       // Handle role-based redirects after sign in
       if (url.startsWith('/')) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;

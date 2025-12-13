@@ -1,11 +1,8 @@
-import NextAuth from 'next-auth';
-import { authOptions } from '@/lib/auth';
-
-// Create auth instance for server-side session access
-const auth = NextAuth(authOptions);
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function getSession() {
-  return await auth();
+  return getServerSession(authOptions);
 }
 
 export async function requireAuth() {

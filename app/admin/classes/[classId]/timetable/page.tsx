@@ -130,7 +130,8 @@ export default async function ClassTimetablePage({
   // Check authentication using auth helpers
   try {
     const token = await getAuthToken();
-    if (!token || token.role !== 'ADMIN') {
+    const role = (token?.role as string)?.toUpperCase();
+    if (!token || role !== 'ADMIN') {
       redirect('/login/admin');
     }
   } catch (error) {

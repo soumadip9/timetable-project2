@@ -20,6 +20,8 @@ export interface IMessage extends Document {
     body: string;
     createdAt: Date;
   }>;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const MessageSchema: Schema = new Schema(

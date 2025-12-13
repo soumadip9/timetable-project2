@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
             const teacherName = (teacher.userId as any)?.name || teacher._id.toString();
 
             // Create entries for both consecutive periods
-            const entriesToInsert = periods.map((period) => ({
+            const entriesToInsert = periods.map((period: number) => ({
               classId: new mongoose.Types.ObjectId(classIdStr),
               teacherId: new mongoose.Types.ObjectId(teacherIdStr),
               dayOfWeek: day,
@@ -246,7 +246,7 @@ export async function POST(req: NextRequest) {
               if (!teacherScheduleCache[teacherIdStr][day]) {
                 teacherScheduleCache[teacherIdStr][day] = new Set();
               }
-              periods.forEach((period) => {
+              periods.forEach((period: number) => {
                 teacherScheduleCache[teacherIdStr][day].add(period);
               });
 
@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
           const updatedSubjects = [...currentSubjects];
           
           // Add lab subjects that aren't already in the list
-          labSubjectsToAdd.forEach((labSubject) => {
+          labSubjectsToAdd.forEach((labSubject: string) => {
             if (!updatedSubjects.includes(labSubject)) {
               updatedSubjects.push(labSubject);
             }

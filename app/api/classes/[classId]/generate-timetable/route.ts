@@ -197,7 +197,7 @@ export async function POST(
     
     // Get all teachers that might be used
     const allTeacherIds = new Set<string>();
-    Object.values(subjectAssignedTeacher).forEach((teacher) => {
+    Object.values(subjectAssignedTeacher).forEach((teacher: { _id?: { toString(): string } } | null) => {
       if (teacher && teacher._id) {
         allTeacherIds.add(teacher._id.toString());
       }
@@ -230,10 +230,10 @@ export async function POST(
       for (const [teacherId, schedule] of Object.entries(teacherScheduleCache)) {
         const teacher = allTeachers.find((t: any) => t._id.toString() === teacherId);
         const teacherName = getTeacherName(teacher);
-        const totalConflicts = Object.values(schedule).reduce((sum, periods) => sum + periods.size, 0);
+        const totalConflicts = Object.values(schedule).reduce((sum: number, periods: Set<number>) => sum + periods.size, 0);
         if (totalConflicts > 0) {
           const scheduleStr = Object.entries(schedule)
-            .map(([day, periods]) => {
+            .map(([day, periods]: [string, Set<number>]) => {
               const dayName = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][parseInt(day) - 1] || `Day${day}`;
               return `${dayName}: P${Array.from(periods).sort((a, b) => a - b).join(", P")}`;
             })
@@ -409,7 +409,7 @@ export async function POST(
     // Track total subject counts per week (across all days) for frequency limiting
     // Use normalized (trimmed) subject names for consistency
     const subjectCountsPerWeek: Record<string, number> = {};
-    subjects.forEach((s) => {
+    subjects.forEach((s: string) => {
       const normalized = s.trim();
       subjectCountsPerWeek[normalized] = 0;
     });
@@ -426,7 +426,7 @@ export async function POST(
       // Track subject usage for this day
       const subjectCountsToday: Record<string, number> = {};
       let lastSubjectThisDay: string | null = null; // Track last subject used in previous period on THIS day
-      subjects.forEach((s) => {
+      subjects.forEach((s: string) => {
         subjectCountsToday[s] = 0;
       });
       
@@ -628,11 +628,11 @@ export async function POST(
           const afterFilter = candidateSubjects.length;
           
           if (beforeFilter > afterFilter) {
-            const excluded = subjects.filter((s) => 
+            const excluded = subjects.filter((s: string) => 
               !candidateSubjects.includes(s) && subjectFrequencyMap[s.trim()] !== undefined
             );
             if (excluded.length > 0) {
-              const excludedWithCounts = excluded.map((s) => {
+              const excludedWithCounts = excluded.map((s: string) => {
                 const normalized = s.trim();
                 const limit = subjectFrequencyMap[normalized];
                 const current = subjectCountsPerWeek[normalized] || 0;

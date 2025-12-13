@@ -1,5 +1,6 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
+import type { NextAuthConfig } from 'next-auth';
 import { connectDB } from '@/lib/mongodb';
 import User from '@/models/User';
 import Teacher from '@/models/Teacher';
@@ -79,10 +80,10 @@ if (!process.env.NEXTAUTH_SECRET) {
   console.warn('⚠️  NEXTAUTH_SECRET is not set. Please add it to .env.local');
 }
 
-export const authOptions = {
+export const authOptions: NextAuthConfig = {
   providers,
   callbacks: {
-    async signIn({ user, account, profile }: { user: any; account: any; profile: any }) {
+    async signIn({ user, account }) {
       if (account?.provider === 'google') {
         await connectDB();
 
@@ -130,7 +131,7 @@ export const authOptions = {
       
       return true;
     },
-    async jwt({ token, user, account }: { token: any; user: any; account: any }) {
+    async jwt({ token, user }) {
       // Initial sign in
       if (user) {
         token.id = user.id;

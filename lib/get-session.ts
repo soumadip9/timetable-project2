@@ -1,5 +1,6 @@
 import { auth } from 'next-auth';
 
+// NextAuth v5: Use auth() instead of getServerSession
 export async function getSession() {
   return await auth();
 }

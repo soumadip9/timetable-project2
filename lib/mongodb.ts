@@ -8,22 +8,24 @@ function getMongoDBUri(): string {
   return MONGODB_URI;
 }
 
-interface MongooseCache {
+type MongooseCache = {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var mongoose: MongooseCache | undefined;
 }
 
-let cached = (global as any).mongoose as MongooseCache | undefined;
+const cached: MongooseCache = global.mongoose ?? {
+  conn: null,
+  promise: null,
+};
 
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
-}
+global.mongoose = cached;
 
 async function connectDB() {
-  if (!cached) {
-    cached = (global as any).mongoose = { conn: null, promise: null };
-  }
-
   if (cached.conn) {
     return cached.conn;
   }

@@ -24,9 +24,9 @@ export async function POST(
 
     // Only teachers can reply (not admins)
     if (token.role !== 'teacher') {
-      console.log('[Reply API] Role check failed - user is not a teacher. Role:', userRole);
+      console.log('[Reply API] Role check failed - user is not a teacher. Role:', token.role);
       return NextResponse.json(
-        { error: `Only teachers can reply to messages. Your role: ${dbRoleRaw || tokenRoleRaw || 'unknown'}` },
+        { error: `Only teachers can reply to messages. Your role: ${token.role || user.role || 'unknown'}` },
         { status: 403 }
       );
     }

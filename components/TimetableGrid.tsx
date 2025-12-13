@@ -25,9 +25,11 @@ interface TimetableEntry {
 }
 
 interface TimetableResponse {
-  success: boolean;
-  data: TimetableEntry[];
+  success?: boolean;
+  data?: TimetableEntry[];
   count?: number;
+  error?: string;
+  message?: string;
 }
 
 const DAYS_OF_WEEK: ITimetable['dayOfWeek'][] = [

@@ -124,8 +124,18 @@ export async function POST(
     // Use the assigned class room - NO FALLBACK to random rooms
     const assignedClassRoom = classRoom.trim();
 
-    // Fetch all teachers for availability checking (use lean for consistency)
-    const allTeachers = await Teacher.find({}).lean();
+    // Fetch all teachers for availability checking (populate userId for name/email access)
+    const allTeachers = await Teacher.find({}).populate('userId', 'name email').lean();
+    
+    // Helper function to safely get teacher name from populated or unpopulated teacher
+    const getTeacherName = (teacher: any): string => {
+      if (!teacher) return 'Unknown';
+      // Check if userId is populated (object with name) or just ObjectId
+      if (teacher.userId && typeof teacher.userId === 'object' && 'name' in teacher.userId) {
+        return teacher.userId.name || teacher._id.toString();
+      }
+      return teacher._id.toString();
+    };
     
     // Build a map subject -> assigned teacher object (or null)
     // Use lean objects for consistency
@@ -166,11 +176,11 @@ export async function POST(
         
         if (pool.length > 0) {
           subjectAssignedTeacher[subj] = pool[Math.floor(Math.random() * pool.length)];
-          console.log(`[Generator] Auto-assigned teacher for "${subj}": ${subjectAssignedTeacher[subj].name} (specialization: ${subjectAssignedTeacher[subj].subject})`);
+          console.log(`[Generator] Auto-assigned teacher for "${subj}": ${getTeacherName(subjectAssignedTeacher[subj])} (specialization: ${subjectAssignedTeacher[subj].subject})`);
         } else {
           // final fallback: any teacher
           subjectAssignedTeacher[subj] = allTeachers[0] || null;
-          console.log(`[Generator] No matching teacher found for "${subj}", using fallback: ${subjectAssignedTeacher[subj]?.name || 'none'}`);
+          console.log(`[Generator] No matching teacher found for "${subj}", using fallback: ${getTeacherName(subjectAssignedTeacher[subj])}`);
         }
       }
     }
@@ -219,7 +229,7 @@ export async function POST(
       console.log(`[Generator] Built availability cache for ${Object.keys(teacherScheduleCache).length} teachers`);
       for (const [teacherId, schedule] of Object.entries(teacherScheduleCache)) {
         const teacher = allTeachers.find((t: any) => t._id.toString() === teacherId);
-        const teacherName = teacher?.name || teacherId;
+        const teacherName = getTeacherName(teacher);
         const totalConflicts = Object.values(schedule).reduce((sum, periods) => sum + periods.size, 0);
         if (totalConflicts > 0) {
           const scheduleStr = Object.entries(schedule)
@@ -264,17 +274,19 @@ export async function POST(
         const available = isTeacherAvailable(teacherIdStr, day, period);
         
         if (available) {
+          const teacherName = getTeacherName(assignedTeacher);
           console.log(
-            `[Generator] ✓ ${slotInfo} | Subject: ${subject} | Assigned teacher "${assignedTeacher.name}" is AVAILABLE`
+            `[Generator] ✓ ${slotInfo} | Subject: ${subject} | Assigned teacher "${teacherName}" is AVAILABLE`
           );
-          return { teacher: assignedTeacher, note: `Assigned teacher "${assignedTeacher.name}" is available` };
+          return { teacher: assignedTeacher, note: `Assigned teacher "${teacherName}" is available` };
         } else {
           // Check what conflict exists
           const conflicts = teacherScheduleCache[teacherIdStr]?.[day] 
             ? Array.from(teacherScheduleCache[teacherIdStr][day]).join(", ")
             : "none";
+          const teacherName = getTeacherName(assignedTeacher);
           console.log(
-            `[Generator] ✗ ${slotInfo} | Subject: ${subject} | Assigned teacher "${assignedTeacher.name}" is UNAVAILABLE (already teaching at period(s): ${conflicts})`
+            `[Generator] ✗ ${slotInfo} | Subject: ${subject} | Assigned teacher "${teacherName}" is UNAVAILABLE (already teaching at period(s): ${conflicts})`
           );
         }
       }
@@ -306,19 +318,21 @@ export async function POST(
         
         const available = isTeacherAvailable(teacherIdStr, day, period);
         if (available) {
+          const teacherName = getTeacherName(teacher);
           console.log(
-            `[Generator] ✓ ${slotInfo} | Subject: ${subject} | Fallback to specialist "${teacher.name}" (specialization: ${teacher.subject}, assigned teacher was unavailable)`
+            `[Generator] ✓ ${slotInfo} | Subject: ${subject} | Fallback to specialist "${teacherName}" (specialization: ${teacher.subject}, assigned teacher was unavailable)`
           );
           return {
             teacher,
-            note: `Fallback to specialist "${teacher.name}" (specialization: ${teacher.subject}, assigned teacher was unavailable)`,
+            note: `Fallback to specialist "${teacherName}" (specialization: ${teacher.subject}, assigned teacher was unavailable)`,
           };
         } else {
           const conflicts = teacherScheduleCache[teacherIdStr]?.[day]
             ? Array.from(teacherScheduleCache[teacherIdStr][day]).join(", ")
             : "none";
+          const teacherName = getTeacherName(teacher);
           console.log(
-            `[Generator] ✗ ${slotInfo} | Subject: ${subject} | Specialist "${teacher.name}" (specialization: ${teacher.subject}) is UNAVAILABLE (already teaching at period(s): ${conflicts})`
+            `[Generator] ✗ ${slotInfo} | Subject: ${subject} | Specialist "${teacherName}" (specialization: ${teacher.subject}) is UNAVAILABLE (already teaching at period(s): ${conflicts})`
           );
         }
       }
@@ -336,12 +350,13 @@ export async function POST(
         
         const available = isTeacherAvailable(teacherIdStr, day, period);
         if (available) {
+          const teacherName = getTeacherName(teacher);
           console.log(
-            `[Generator] ✓ ${slotInfo} | Subject: ${subject} | Fallback to any available teacher "${teacher.name}" (specialists were unavailable)`
+            `[Generator] ✓ ${slotInfo} | Subject: ${subject} | Fallback to any available teacher "${teacherName}" (specialists were unavailable)`
           );
           return {
             teacher,
-            note: `Fallback to any available teacher "${teacher.name}" (specialists were unavailable)`,
+            note: `Fallback to any available teacher "${teacherName}" (specialists were unavailable)`,
           };
         }
       }
@@ -849,7 +864,7 @@ export async function POST(
             });
 
             console.log(
-              `[Generator] ✓ ASSIGNED LAB (2 periods): ${dayName} Periods ${period}-${nextPeriod} | Subject: ${subjectForSlot} | Teacher: ${teacherObj.name} | Note: ${resultPeriod1.note}`
+              `[Generator] ✓ ASSIGNED LAB (2 periods): ${dayName} Periods ${period}-${nextPeriod} | Subject: ${subjectForSlot} | Teacher: ${getTeacherName(teacherObj)} | Note: ${resultPeriod1.note}`
             );
 
             assignedSlots += 2; // Count as 2 slots
@@ -908,7 +923,7 @@ export async function POST(
         
         // Log successful assignment with note
         console.log(
-          `[Generator] ✓ ASSIGNED: ${dayName} Period ${period} | Subject: ${subjectForSlot} | Teacher: ${teacherObj.name} | Note: ${result.note}`
+          `[Generator] ✓ ASSIGNED: ${dayName} Period ${period} | Subject: ${subjectForSlot} | Teacher: ${getTeacherName(teacherObj)} | Note: ${result.note}`
         );
 
         // Update cache to reflect this assignment (for same-day subsequent periods)

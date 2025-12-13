@@ -16,6 +16,11 @@ const providers: any[] = [
         throw new Error('Please enter email and password');
       }
 
+      // Type guard: ensure credentials.email and credentials.password are strings
+      if (typeof credentials.email !== 'string' || typeof credentials.password !== 'string') {
+        throw new Error('Invalid credentials format');
+      }
+
       await connectDB();
 
       const user = await User.findOne({ email: credentials.email }).select(

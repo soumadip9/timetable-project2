@@ -69,6 +69,10 @@ export async function GET(request: NextRequest) {
       for (const msg of messagesData) {
         if (msg.isBroadcast) {
           // Create a key from subject, body, and createdAt (rounded to second)
+          if (!msg.createdAt) {
+            console.warn('[Messages API] Broadcast message missing createdAt:', msg._id);
+            continue;
+          }
           const createdAt = new Date(msg.createdAt);
           const timeKey = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate(), 
             createdAt.getHours(), createdAt.getMinutes(), createdAt.getSeconds()).toISOString();
@@ -271,7 +275,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (token.role !== 'ADMIN') {
+    const tokenRole = (token.role || '').toUpperCase();
+    if (tokenRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Only admins can send messages' }, { status: 403 });
     }
 

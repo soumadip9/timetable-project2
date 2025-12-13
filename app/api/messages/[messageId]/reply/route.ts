@@ -110,6 +110,9 @@ export async function POST(
     if (message.isBroadcast) {
       try {
         // Find all messages from the same broadcast (same sender, subject, body, and createdAt within same second)
+        if (!message.createdAt) {
+          throw new Error('Message createdAt is missing');
+        }
         const createdAt = new Date(message.createdAt);
         const timeStart = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate(),
           createdAt.getHours(), createdAt.getMinutes(), createdAt.getSeconds(), 0);

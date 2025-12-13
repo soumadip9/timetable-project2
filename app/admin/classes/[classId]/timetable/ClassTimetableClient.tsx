@@ -152,27 +152,31 @@ export default function ClassTimetableClient({
     }
   };
 
-  const handleSave = async (data: { subjectId: string; teacherId: string; roomId: string }) => {
+  const handleSave = async (data: Record<string, any>) => {
     if (!activeTimeSlot) {
       alert('Please select a time slot.');
       return;
     }
 
-    const day = activeDay || editingTimetable?.day;
+    const day = activeDay || editingTimetable?.day || data.day;
     if (!day) {
       alert('Please select a day.');
       return;
     }
 
-    if (!data.subjectId) {
+    const subjectId = data.subjectId as string;
+    const teacherId = data.teacherId as string;
+    const roomId = data.roomId as string;
+
+    if (!subjectId) {
       alert('Please select a subject.');
       return;
     }
-    if (!data.teacherId) {
+    if (!teacherId) {
       alert('Please select a teacher.');
       return;
     }
-    if (!data.roomId) {
+    if (!roomId) {
       alert('Please select a room.');
       return;
     }
@@ -182,9 +186,9 @@ export default function ClassTimetableClient({
         classId: classData.id,
         day,
         timeSlot: activeTimeSlot,
-        subjectId: data.subjectId,
-        teacherId: data.teacherId,
-        roomId: data.roomId,
+        subjectId,
+        teacherId,
+        roomId,
       };
 
       const res = await fetch('/api/timetables', {
@@ -208,6 +212,12 @@ export default function ClassTimetableClient({
       console.error('Error saving timetable:', error);
       alert('Failed to save timetable');
     }
+  };
+
+  const handleSaveWrapper = (data: Record<string, any>) => {
+    handleSave(data).catch((error) => {
+      console.error('Error in handleSave:', error);
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -369,7 +379,7 @@ export default function ClassTimetableClient({
             setActiveDay(null);
             setEditingTimetable(null);
           }}
-          onSave={handleSave}
+          onSave={handleSaveWrapper}
           title={editingTimetable ? 'Edit Timetable Entry' : 'Add Timetable Entry'}
           fields={[
             {

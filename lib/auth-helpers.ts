@@ -30,7 +30,7 @@ export async function getAuthToken(request?: NextRequest) {
 export async function requireAdmin(request?: NextRequest) {
   const token = await getAuthToken(request);
   
-  if (!token || token.role !== 'ADMIN') {
+  if (!token || token.role !== 'admin') {
     throw new Error('Unauthorized: Admin access required');
   }
   
@@ -40,7 +40,7 @@ export async function requireAdmin(request?: NextRequest) {
 export async function requireTeacher(request?: NextRequest) {
   const token = await getAuthToken(request);
   
-  if (!token || token.role !== 'TEACHER') {
+  if (!token || token.role !== 'teacher') {
     throw new Error('Unauthorized: Teacher access required');
   }
   

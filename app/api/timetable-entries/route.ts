@@ -34,8 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     // If teacher, only show their entries
-    const tokenRole = (token.role || '').toUpperCase();
-    if (tokenRole === 'TEACHER') {
+    if (token.role === 'teacher') {
       console.log('[API] GET /api/timetable-entries - Teacher request');
       console.log('[API] GET /api/timetable-entries - Token data:', {
         id: token.id,
@@ -87,10 +86,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Authorization check:
-    // - ADMIN can access all
-    // - TEACHER already has query.teacherId set above
+    // - admin can access all
+    // - teacher already has query.teacherId set above
     // - Others need classId or teacherId parameter
-    if (tokenRole !== 'ADMIN' && tokenRole !== 'TEACHER' && !classId && !teacherId) {
+    if (token.role !== 'admin' && token.role !== 'teacher' && !classId && !teacherId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

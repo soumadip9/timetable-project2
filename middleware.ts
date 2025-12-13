@@ -44,9 +44,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login/admin', request.url));
     }
 
-    // If token.role !== "ADMIN" → redirect to /
-    const role = (token as any)?.role as 'ADMIN' | 'TEACHER';
-    if (role !== 'ADMIN') {
+    // If token.role !== "admin" → redirect to /
+    if (token?.role !== 'admin') {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
@@ -60,8 +59,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login/teacher', request.url));
     }
 
-    const role = (token as any)?.role as 'ADMIN' | 'TEACHER';
-    if (role !== 'TEACHER') {
+    if (token?.role !== 'teacher') {
       return NextResponse.redirect(new URL('/login/teacher?error=Forbidden', request.url));
     }
   }

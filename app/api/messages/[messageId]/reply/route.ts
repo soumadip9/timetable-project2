@@ -23,23 +23,7 @@ export async function POST(
     }
 
     // Only teachers can reply (not admins)
-    // User model stores roles as uppercase: 'TEACHER' or 'ADMIN'
-    // Check both lowercase and uppercase roles for compatibility
-    const tokenRoleRaw = token.role || '';
-    const dbRoleRaw = user.role || '';
-    const tokenRole = tokenRoleRaw.toUpperCase();
-    const dbRole = dbRoleRaw.toUpperCase();
-    const userRole = tokenRole || dbRole;
-    
-    console.log('[Reply API] Role check:', { 
-      tokenRoleRaw, 
-      tokenRole,
-      dbRoleRaw, 
-      dbRole,
-      finalRole: userRole 
-    });
-    
-    if (userRole !== 'TEACHER') {
+    if (token.role !== 'teacher') {
       console.log('[Reply API] Role check failed - user is not a teacher. Role:', userRole);
       return NextResponse.json(
         { error: `Only teachers can reply to messages. Your role: ${dbRoleRaw || tokenRoleRaw || 'unknown'}` },

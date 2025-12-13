@@ -25,12 +25,11 @@ export async function GET(request: NextRequest) {
     // For teachers, get messages sent to them
     // For admins, get messages they sent (so they can see replies)
     let query: any = {};
-    const userRole = token.role?.toUpperCase();
     
-    if (userRole === 'TEACHER') {
+    if (token.role === 'teacher') {
       // Teachers see messages sent to them
       query = { recipientId: user._id };
-    } else if (userRole === 'ADMIN') {
+    } else if (token.role === 'admin') {
       // Admins see messages they sent (to see replies)
       query = { senderId: user._id };
     } else {
@@ -61,7 +60,7 @@ export async function GET(request: NextRequest) {
     // For admins, group broadcast messages to avoid duplicates
     let processedMessages: any[] = [];
     
-    if (userRole === 'ADMIN') {
+    if (token.role === 'admin') {
       // Group broadcast messages by subject + body + createdAt (within same second)
       const broadcastGroups = new Map<string, any[]>();
       const individualMessages: any[] = [];
@@ -241,7 +240,7 @@ export async function GET(request: NextRequest) {
 
     // Count unread messages (only messages where user is recipient, not sender)
     const unreadCount = processedMessages.filter((msg: any) => {
-      if (userRole === 'ADMIN') return false; // Admins don't have unread sent messages
+      if (token.role === 'admin') return false; // Admins don't have unread sent messages
       const recipientIdStr = msg.recipientId ? String(msg.recipientId) : null;
       const isRecipient = recipientIdStr === userIdStr;
       return isRecipient && !msg.isRead;
@@ -275,8 +274,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tokenRole = (token.role || '').toUpperCase();
-    if (tokenRole !== 'ADMIN') {
+    if (token.role !== 'admin') {
       return NextResponse.json({ error: 'Only admins can send messages' }, { status: 403 });
     }
 

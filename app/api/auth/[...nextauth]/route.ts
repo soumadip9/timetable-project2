@@ -79,7 +79,7 @@ export const authOptions = {
     error: "/auth/signin",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { token: any; user: any }) {
       try {
         if (user) {
           token.id = (user as any).id;

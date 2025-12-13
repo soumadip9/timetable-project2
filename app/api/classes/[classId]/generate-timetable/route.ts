@@ -87,8 +87,8 @@ export async function POST(
           labSubjectRoomMap = mapValue.toObject();
         } else if (mapValue && typeof mapValue.get === 'function') {
           // If it's still a Map (legacy), convert it
-          const keys = Array.from(mapValue.keys() || []);
-          keys.forEach((key: string) => {
+          const keys = Array.from(mapValue.keys() || []) as string[];
+          keys.forEach((key) => {
             const value = mapValue.get(key);
             if (value) {
               labSubjectRoomMap[key] = value;

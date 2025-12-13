@@ -112,7 +112,7 @@ export const authOptions = {
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: any; token: any }) {
       try {
         if (session && token) {
           if (session.user) {

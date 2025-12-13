@@ -45,7 +45,7 @@ export const authOptions = {
         }
 
         // Check password using bcryptjs
-        const isMatch = await bcrypt.compare(credentials.password, user.password);
+        const isMatch = await bcrypt.compare(credentials.password as string, user.password);
         console.log("[AUTH] Password match:", isMatch);
 
         if (!isMatch) {

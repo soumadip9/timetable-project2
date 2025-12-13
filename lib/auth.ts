@@ -43,7 +43,7 @@ const providers: any[] = [
       // User model stores roles as uppercase: 'TEACHER' or 'ADMIN'
       let teacherId: string | null = null;
       if (user.role && user.role.toUpperCase() === 'TEACHER') {
-        const teacher = await Teacher.findOne({ email: user.email });
+        const teacher = await Teacher.findOne({ userId: user._id });
         if (teacher) {
           teacherId = teacher._id.toString();
         }

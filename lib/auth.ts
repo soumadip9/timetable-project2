@@ -44,11 +44,14 @@ const providers: any[] = [
         }
       }
 
+      // Normalize role to lowercase for NextAuth User type
+      const normalizedRole = user.role?.toLowerCase() === 'admin' ? 'admin' : 'teacher';
+
       return {
         id: user._id.toString(),
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: normalizedRole,
         image: user.image,
         teacherId: teacherId || null,
       };
@@ -144,7 +147,8 @@ export const authOptions = {
         const dbUser = await User.findOne({ email: token.email });
         if (dbUser) {
           token.id = dbUser._id.toString();
-          token.role = dbUser.role;
+          // Normalize role to lowercase for JWT token
+          token.role = dbUser.role?.toLowerCase() === 'admin' ? 'admin' : 'teacher';
           
           // If teacher, fetch teacherId (check both uppercase and lowercase)
           if (dbUser.role && dbUser.role.toUpperCase() === 'TEACHER') {
@@ -169,7 +173,9 @@ export const authOptions = {
       try {
         if (session.user && token) {
           session.user.id = (token.id as string) || '';
-          (session.user as any).role = (token.role as string) || 'teacher';
+          // Normalize role to uppercase for Session (Session uses uppercase)
+          const role = (token.role as string) || 'teacher';
+          (session.user as any).role = role.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'TEACHER';
           (session.user as any).teacherId = token.teacherId || null;
         }
       } catch (error) {

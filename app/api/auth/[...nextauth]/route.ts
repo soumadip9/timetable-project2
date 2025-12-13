@@ -83,8 +83,8 @@ export const authOptions = {
       try {
         if (user) {
           token.id = (user as any).id;
-          // Keep role as uppercase (ADMIN or TEACHER) to match User model
-          token.role = (user as any).role || "TEACHER";
+          // User role is already normalized to lowercase in authorize()
+          token.role = (user as any).role || "teacher";
           token.email = (user as any).email;
           console.log("[AUTH] JWT callback - User data:", {
             id: (user as any).id,
@@ -99,8 +99,8 @@ export const authOptions = {
           token.id = "";
         }
         if (!token.role) {
-          console.warn("[AUTH] JWT callback - Token.role is missing, defaulting to TEACHER");
-          token.role = "TEACHER";
+          console.warn("[AUTH] JWT callback - Token.role is missing, defaulting to teacher");
+          token.role = "teacher";
         }
         console.log("[AUTH] JWT callback - Final token:", {
           id: token.id,
@@ -117,9 +117,9 @@ export const authOptions = {
         if (session && token) {
           if (session.user) {
             (session.user as any).id = (token.id as string) || "";
-            // Ensure role is uppercase (ADMIN or TEACHER) to match User model
-            const role = (token.role as string) || "TEACHER";
-            (session.user as any).role = role.toUpperCase() === "ADMIN" ? "ADMIN" : "TEACHER";
+            // Normalize role to uppercase for Session (Session uses uppercase)
+            const role = (token.role as string) || "teacher";
+            (session.user as any).role = role === "admin" ? "ADMIN" : "TEACHER";
             console.log("[AUTH] Session callback - Token role:", token.role, "→ Session role:", (session.user as any).role);
           }
         }
